@@ -1,0 +1,13 @@
+{
+  "name": "floony-project",
+  "version": "1.0.0",
+  "description": "Floony - AI Expense Tracker",
+  "scripts": {
+    "dev": "npx concurrently \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "start": "npx concurrently \"npm --prefix backend start\" \"npm --prefix frontend run dev\"",
+    "install-all": "npm install --prefix backend && npm install --prefix frontend"
+  },
+  "dependencies": {
+    "concurrently": "^10.0.3"
+  }
+}
