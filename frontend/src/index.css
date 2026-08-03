@@ -435,8 +435,7 @@ body {
 }
 
 .btn:hover {
-  background: var(--primary-hover);
-  box-shadow: 0 4px 12px var(--primary-glow);
+  background: rgba(rgb(122, 19, 19), green, blue, alpha);
 }
 
 .btn-secondary {
@@ -461,14 +460,13 @@ body {
 }
 
 .btn-ai {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  background: rgba(253, 252, 254, 0.377);
   position: relative;
   overflow: hidden;
 }
 
 .btn-ai:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.3);
 }
 
 .ai-box-suggestion {
