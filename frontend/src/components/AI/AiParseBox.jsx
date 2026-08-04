@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { Sparkles, X, Check } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { FinanceContext } from '../../context/FinanceContext';
 import { CURRENCIES } from '../../constants/currencies';
 import { getCategoryBadgeClass } from '../../constants/categories';
@@ -22,7 +22,6 @@ export const AiParseBox = () => {
     <div className="animate-fade-in">
       <div className="ai-box-container">
         <div className="ai-box-header">
-          <Sparkles size={14} />
           Natural Language Quick Log
         </div>
         <form onSubmit={handleAiParse} className="ai-input-wrapper">
@@ -42,7 +41,6 @@ export const AiParseBox = () => {
               </>
             ) : (
               <>
-                <Sparkles size={16} />
                 Log with AI
               </>
             )}
