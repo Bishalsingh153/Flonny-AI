@@ -3,10 +3,10 @@ import { LogOut, LayoutDashboard, ReceiptText, Bot, Wallet, Sparkles, Menu, X } 
 import { useAuth } from '../../hooks/useAuth';
 import { FinanceContext } from '../../context/FinanceContext';
 
-export const Sidebar = ({ activeTab, setActiveTab }) => {
+export const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
   const { user, handleLogout } = useAuth();
   const { aiStatus } = useContext(FinanceContext);
-  const [isOpen, setIsOpen] = useState(false);
+
 
   const handleNavClick = (tab) => {
     setActiveTab(tab);
@@ -82,7 +82,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
         </div>
 
         <div className="sidebar-footer">
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
             <Sparkles size={12} className="insight-icon-purple" style={{ color: 'var(--accent)' }} />
             <span>AI Status: {aiStatus}</span>

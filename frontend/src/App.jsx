@@ -57,11 +57,13 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Filter States (Transactions page)
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+
 
   if (!token) {
     return <AuthLayout />;
@@ -128,19 +130,19 @@ function AppContent() {
   };
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
       {/* SIDEBAR NAVIGATION */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
       {/* MAIN CONTAINER */}
       <main className="main-content">
         {/* HEADER SECTION */}
-        <Header 
-          activeTab={activeTab} 
+        <Header
+          activeTab={activeTab}
           onAddTransactionClick={() => {
             setEditingTransaction(null);
             setIsModalOpen(true);
-          }} 
+          }}
         />
 
         {/* 1. DASHBOARD VIEW */}
@@ -151,7 +153,7 @@ function AppContent() {
 
             {/* METRICS GRID */}
             <div className="metrics-grid">
-              <MetricCard 
+              <MetricCard
                 title="Net Account Balance"
                 value={`${currentCurrencySymbol}${netSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 change={`${netSavings >= 0 ? 'Surplus' : 'Deficit'} budget flow`}
@@ -159,21 +161,21 @@ function AppContent() {
                 icon={Wallet}
                 changeIcon={netSavings >= 0 ? TrendingUp : TrendingDown}
               />
-              <MetricCard 
+              <MetricCard
                 title="Total Inflow"
                 value={`${currentCurrencySymbol}${totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 change="Active earnings tracked"
                 changeType="positive"
                 icon={TrendingUp}
               />
-              <MetricCard 
+              <MetricCard
                 title="Total Outflow"
                 value={`${currentCurrencySymbol}${totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 change="Discretionary & bills combined"
                 changeType="neutral"
                 icon={TrendingDown}
               />
-              <MetricCard 
+              <MetricCard
                 title="Savings Velocity"
                 value={`${savingsRate}%`}
                 change={savingsRate >= 20 ? 'Excellent rate of savings!' : 'Aim for 20% savings margin'}
@@ -193,10 +195,10 @@ function AppContent() {
 
               <div className="card">
                 <h3 className="card-title">Budget Health</h3>
-                <BudgetHealth 
-                  budgets={budgets} 
-                  categorySpendMap={categorySpendMap} 
-                  currencySymbol={currentCurrencySymbol} 
+                <BudgetHealth
+                  budgets={budgets}
+                  categorySpendMap={categorySpendMap}
+                  currencySymbol={currentCurrencySymbol}
                 />
               </div>
             </div>
@@ -205,7 +207,7 @@ function AppContent() {
             <div className="card" style={{ marginBottom: '2.5rem' }}>
               <div className="card-title">
                 <span>Recent Ledger Records</span>
-                <span 
+                <span
                   style={{ fontSize: '0.8rem', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                   onClick={() => setActiveTab('transactions')}
                 >
@@ -213,9 +215,9 @@ function AppContent() {
                 </span>
               </div>
               <div className="table-container">
-                <RecentTransactions 
-                  transactions={transactions} 
-                  currencySymbol={currentCurrencySymbol} 
+                <RecentTransactions
+                  transactions={transactions}
+                  currencySymbol={currentCurrencySymbol}
                 />
               </div>
             </div>
@@ -225,7 +227,7 @@ function AppContent() {
         {/* 2. TRANSACTIONS LEDGER VIEW */}
         {activeTab === 'transactions' && (
           <div className="card animate-fade-in" style={{ marginBottom: '2.5rem' }}>
-            <FilterBar 
+            <FilterBar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               filterCategory={filterCategory}
@@ -235,9 +237,9 @@ function AppContent() {
             />
 
             <div className="table-container">
-              <TransactionTable 
+              <TransactionTable
                 transactions={transactions.filter(t => {
-                  const matchesSearch = 
+                  const matchesSearch =
                     (t.merchant && t.merchant.toLowerCase().includes(searchQuery.toLowerCase())) ||
                     (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()));
                   const matchesCategory = filterCategory === 'All' || t.category === filterCategory;
@@ -265,28 +267,28 @@ function AppContent() {
             <ChatPanel />
 
             <div className="insights-panel">
-              <InsightCard 
+              <InsightCard
                 title="Wealth Intelligence"
                 icon={PiggyBank}
                 iconClass="insight-icon-purple"
                 description={
                   <>
-                    Based on your current logs, your savings rate is <strong>{savingsRate}%</strong>. 
-                    {savingsRate > 20 
+                    Based on your current logs, your savings rate is <strong>{savingsRate}%</strong>.
+                    {savingsRate > 20
                       ? ' Performing above the standard recommended mark. Keep investing the excess!'
                       : ' Try to optimize your shopping and food bills to increase this rate above 20%.'}
                   </>
                 }
               />
 
-              <InsightCard 
+              <InsightCard
                 title="Budget Limit Checks"
                 icon={AlertTriangle}
                 iconClass="insight-icon-rose"
                 description={
                   budgets.some(b => (categorySpendMap[b.category] || 0) > b.amount) ? (
                     <span>
-                      You have breached your monthly budget limits in: 
+                      You have breached your monthly budget limits in:
                       <strong style={{ color: 'var(--error)' }}>
                         {budgets
                           .filter(b => (categorySpendMap[b.category] || 0) > b.amount)
@@ -300,14 +302,14 @@ function AppContent() {
                 }
               />
 
-              <InsightCard 
+              <InsightCard
                 title="Top Expense Driver"
                 icon={TrendingUp}
                 iconClass="insight-icon-green"
                 description={
                   categorySpendData.length > 0 ? (
                     <div>
-                      Your highest spending category this month is <strong>{categorySpendData[0].name}</strong> with 
+                      Your highest spending category this month is <strong>{categorySpendData[0].name}</strong> with
                       a total spending of <strong>{currentCurrencySymbol}{categorySpendData[0].value.toFixed(2)}</strong>.
                     </div>
                   ) : (
@@ -333,13 +335,13 @@ function AppContent() {
                   {CATEGORIES.filter(c => c !== 'Salary' && c !== 'Freelance').map(cat => {
                     const budget = budgets.find(b => b.category === cat);
                     const budgetAmount = budget ? budget.amount : 0;
-                    
+
                     return (
                       <div key={cat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
                         <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{cat}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{currentCurrencySymbol}</span>
-                          <input 
+                          <input
                             type="number"
                             className="form-control"
                             style={{ width: '120px', padding: '0.4rem 0.75rem' }}
@@ -363,7 +365,7 @@ function AppContent() {
                       <BarChart data={categorySpendData} layout="vertical">
                         <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
                         <YAxis dataKey="name" type="category" stroke="var(--text-muted)" fontSize={11} tickLine={false} width={100} />
-                        <Tooltip 
+                        <Tooltip
                           formatter={(value) => [`${currentCurrencySymbol}${value}`, 'Spend']}
                           contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', color: 'var(--text-primary)' }}
                         />
@@ -388,7 +390,7 @@ function AppContent() {
       </main>
 
       {/* CRUD TRANSACTION MANUAL MODAL */}
-      <TransactionModal 
+      <TransactionModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
