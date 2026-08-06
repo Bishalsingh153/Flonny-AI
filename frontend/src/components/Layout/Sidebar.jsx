@@ -62,7 +62,7 @@ export const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
               onClick={() => handleNavClick('transactions')}
             >
               <ReceiptText size={18} />
-              Transactionsss
+              Transactions
             </div>
             <div
               className={`nav-item ${activeTab === 'ai-coach' ? 'active' : ''}`}
