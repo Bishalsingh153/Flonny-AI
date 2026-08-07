@@ -4,12 +4,11 @@
   "description": "Floony - AI Expense Tracker",
   "scripts": {
     "dev": "npx concurrently \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
-    "build": "npm install --prefix frontend && npm run build --prefix frontend",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
     "start": "npm --prefix backend start",
-    "install-all": "npm install --prefix backend && npm install --prefix frontend"
+    "install-all": "npm --prefix backend install && npm --prefix frontend install"
   },
   "dependencies": {
     "concurrently": "^10.0.3"
   }
 }
-
