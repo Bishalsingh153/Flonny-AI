@@ -23,7 +23,7 @@ app.use(express.json());
 
 // Serve built React frontend in production
 if (process.env.NODE_ENV === 'production') {
-  const distPath = path.join(process.cwd(), 'frontend', 'dist');
+  const distPath = path.join(__dirname, '..', 'frontend', 'dist');
   app.use(express.static(distPath, {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.css')) {
@@ -290,10 +290,14 @@ app.post('/api/ai/chat', authenticateToken, async (req, res) => {
   }
 });
 
-// SPA fallback — serve index.html for any non-API route (React Router)
-// Must be AFTER all /api routes
+// SPA fallback — serve index.html for any non-API, non-file route (React Router)
+// Must be AFTER all /api routes and static middleware
 if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, '..', 'frontend', 'dist');
   app.use((req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    if (req.path.startsWith('/api/') || path.extname(req.path)) {
+      return res.status(404).send('Not found');
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
   });
 }
