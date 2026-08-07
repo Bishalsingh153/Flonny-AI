@@ -285,7 +285,7 @@ app.post('/api/ai/chat', authenticateToken, async (req, res) => {
 // SPA fallback — serve index.html for any non-API route (React Router)
 // Must be AFTER all /api routes
 if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
+  app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
   });
 }
