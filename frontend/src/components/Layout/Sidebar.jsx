@@ -55,7 +55,7 @@ export const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
               onClick={() => handleNavClick('dashboard')}
             >
               <LayoutDashboard size={18} />
-              Dashboarddd
+              Dashboard
             </div>
             <div
               className={`nav-item ${activeTab === 'transactions' ? 'active' : ''}`}
