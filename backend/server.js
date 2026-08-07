@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const dotenv = require('dotenv');
 const { initDb, getDb } = require('./db');
 const { parseExpenseWithGemini, generateFinancialAdviceWithGemini } = require('./aiService');
@@ -11,17 +12,20 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS — restrict to allowed origins in production
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:5173', 'http://localhost:4173'];
+// In development, allow Vite dev server to call this backend
+// In production, frontend is served from the same origin — no CORS needed
+if (process.env.NODE_ENV !== 'production') {
+  app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'], credentials: true }));
+}
 
 // Middleware
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
 app.use(express.json());
+
+// Serve built React frontend in production
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, '../frontend/dist');
+  app.use(express.static(distPath));
+}
 
 
 // Initialize database then start server
@@ -277,3 +281,11 @@ app.post('/api/ai/chat', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'AI advisor failed to generate response' });
   }
 });
+
+// SPA fallback — serve index.html for any non-API route (React Router)
+// Must be AFTER all /api routes
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  });
+}

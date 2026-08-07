@@ -1,33 +1,16 @@
 services:
-  # ── Backend Web Service ──────────────────────────────────────────────────────
+  # One single Web Service — backend serves the built frontend
   - type: web
-    name: floony-backend
+    name: floony-ai
     runtime: node
-    rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm install --prefix backend && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false        # Paste your Supabase URL in the Render dashboard
+        sync: false       # Paste your Supabase URL in Render dashboard
       - key: JWT_SECRET
-        sync: false        # Paste your JWT secret in the Render dashboard
+        sync: false       # Paste your JWT secret in Render dashboard
       - key: GEMINI_API_KEY
-        sync: false        # Paste your Gemini API key in the Render dashboard
-      - key: ALLOWED_ORIGINS
-        value: https://floony.xyz,https://www.floony.xyz
-
-  # ── Frontend Static Site ─────────────────────────────────────────────────────
-  - type: static
-    name: floony-frontend
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://floony-backend.onrender.com/api
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+        sync: false       # Paste your Gemini API key in Render dashboard
