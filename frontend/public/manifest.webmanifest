@@ -1,0 +1,17 @@
+{
+  "name": "Floony AI",
+  "short_name": "Floony",
+  "description": "AI expense tracker — log by text, voice, or receipt.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07080d",
+  "theme_color": "#07080d",
+  "icons": [
+    {
+      "src": "/floony-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

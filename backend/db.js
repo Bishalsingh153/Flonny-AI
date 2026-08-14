@@ -8,7 +8,6 @@ async function initDb() {
     throw new Error('DATABASE_URL is not set in environment variables.');
   }
 
-  // Parse connection URL to configure SSL correctly (bypassing SELF_SIGNED_CERT_IN_CHAIN issue)
   const url = new URL(connectionString);
   const config = {
     user: decodeURIComponent(url.username),
@@ -21,7 +20,6 @@ async function initDb() {
 
   pool = new Pool(config);
 
-  // Test the connection
   try {
     const client = await pool.connect();
     console.log('Successfully connected to Supabase PostgreSQL database.');
@@ -31,7 +29,6 @@ async function initDb() {
     throw err;
   }
 
-  // Create users table if not exists
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -42,7 +39,6 @@ async function initDb() {
     )
   `);
 
-  // Create transactions table if not exists
   await pool.query(`
     CREATE TABLE IF NOT EXISTS transactions (
       id SERIAL PRIMARY KEY,
@@ -57,7 +53,6 @@ async function initDb() {
     )
   `);
 
-  // Create budgets table if not exists
   await pool.query(`
     CREATE TABLE IF NOT EXISTS budgets (
       category VARCHAR(100) NOT NULL,
@@ -65,6 +60,56 @@ async function initDb() {
       amount DOUBLE PRECISION NOT NULL,
       period VARCHAR(50) DEFAULT 'monthly',
       PRIMARY KEY (category, user_id)
+    )
+  `);
+
+  await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'manual'`);
+  await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS receipt_url TEXT`);
+  await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS original_amount DOUBLE PRECISION`);
+  await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS original_currency VARCHAR(10)`);
+  await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS split_with VARCHAR(255)`);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role VARCHAR(20) NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recurring_rules (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      merchant VARCHAR(255) NOT NULL,
+      amount DOUBLE PRECISION NOT NULL,
+      category VARCHAR(100) NOT NULL,
+      cadence VARCHAR(50) DEFAULT 'monthly',
+      next_date VARCHAR(50) NOT NULL,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS goals (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      target_amount DOUBLE PRECISION NOT NULL,
+      current_amount DOUBLE PRECISION DEFAULT 0,
+      deadline VARCHAR(50),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS insights_cache (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      cache_date VARCHAR(20) NOT NULL,
+      payload JSONB NOT NULL
     )
   `);
 
