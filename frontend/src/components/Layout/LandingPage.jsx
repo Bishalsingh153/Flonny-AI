@@ -6,13 +6,9 @@ export const LandingPage = () => {
   const { token, setAuthError } = useAuth();
   const navigate = useNavigate();
 
-  const openAuth = (mode) => {
+  const go = () => {
     setAuthError(null);
-    if (token) {
-      navigate('/dashboard');
-      return;
-    }
-    navigate(mode === 'login' ? '/login' : '/signup');
+    navigate(token ? '/dashboard' : '/signup');
   };
 
   return (
@@ -33,10 +29,10 @@ export const LandingPage = () => {
             </button>
           ) : (
             <>
-              <button type="button" className="btn-ghost" onClick={() => openAuth('login')}>
+              <button type="button" className="btn-ghost" onClick={() => { setAuthError(null); navigate('/login'); }}>
                 Login
               </button>
-              <button type="button" className="btn-solid" onClick={() => openAuth('register')}>
+              <button type="button" className="btn-solid" onClick={() => { setAuthError(null); navigate('/signup'); }}>
                 Sign up
               </button>
             </>
@@ -56,20 +52,9 @@ export const LandingPage = () => {
           and coaches you without the bank-app noise.
         </p>
         <div className="landing-hero-actions">
-          {token ? (
-            <button type="button" className="btn-solid" onClick={() => navigate('/dashboard')}>
-              Open ledger
-            </button>
-          ) : (
-            <>
-              <button type="button" className="btn-solid" onClick={() => openAuth('register')}>
-                Sign up
-              </button>
-              <button type="button" className="btn-ghost" onClick={() => openAuth('login')}>
-                Login
-              </button>
-            </>
-          )}
+          <button type="button" className="btn-solid" onClick={go}>
+            {token ? 'Open ledger' : 'Get Started'}
+          </button>
         </div>
       </main>
 
