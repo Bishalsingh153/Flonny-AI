@@ -32,10 +32,12 @@ export const ChatPanel = () => {
     setPendingAction
   } = useContext(FinanceContext);
 
-  const chatEndRef = useRef(null);
+  const messagesRef = useRef(null);
 
   useEffect(() => {
-    if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const box = messagesRef.current;
+    if (!box) return;
+    box.scrollTop = box.scrollHeight;
   }, [chatHistory, pendingAction]);
 
   const currentCurrencySymbol = CURRENCIES[currency] || '₹';
@@ -46,13 +48,13 @@ export const ChatPanel = () => {
     <div className="chat-panel">
       <div className="chat-header">
         <Sparkles size={16} style={{ color: 'var(--accent)' }} />
-        <span style={{ fontWeight: 700 }}>Floony</span>
+        <span className="logo-text" style={{ fontSize: '1.2rem' }}>Floony</span>
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
           {aiStatus || 'Checking Gemini…'}
         </span>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesRef}>
         {chatHistory.map((msg, index) => {
           const split = msg.role === 'assistant' ? splitEngineNotice(msg.content) : { notice: msg.notice, body: msg.content };
           const notice = msg.notice || split.notice;
@@ -85,7 +87,6 @@ export const ChatPanel = () => {
             </div>
           </div>
         )}
-        <div ref={chatEndRef}></div>
       </div>
 
       <form onSubmit={handleAiChat} className="chat-input-form">

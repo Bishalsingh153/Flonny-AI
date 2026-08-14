@@ -7,6 +7,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('floony_token') || null);
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('floony_user')) || null);
+  const [authScreen, setAuthScreen] = useState('landing');
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [authFormData, setAuthFormData] = useState({ username: '', email: '', password: '' });
   const [authError, setAuthError] = useState(null);
@@ -18,6 +19,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('floony_user');
     setToken(null);
     setUser(null);
+    setAuthScreen('landing');
+    setAuthMode('login');
+    setAuthError(null);
   };
 
   const authFetch = async (url, options = {}) => {
@@ -90,6 +94,8 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       token,
       user,
+      authScreen,
+      setAuthScreen,
       authMode,
       setAuthMode,
       authFormData,

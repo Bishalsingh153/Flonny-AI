@@ -4,8 +4,8 @@
   "description": "AI expense tracker — log by text, voice, or receipt.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#07080d",
-  "theme_color": "#07080d",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "/floony-icon.svg",

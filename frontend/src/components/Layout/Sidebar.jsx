@@ -1,16 +1,14 @@
 import React, { useContext } from 'react';
-import { LogOut, LayoutDashboard, ReceiptText, Bot, Wallet, Sparkles, Menu, X, Target, Repeat, CalendarDays } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { LogOut, LayoutDashboard, ReceiptText, Bot, Wallet, Sparkles, PanelLeftClose, Target, Repeat, CalendarDays } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { FinanceContext } from '../../context/FinanceContext';
+import { pathFromTab } from '../../utils/routes';
 
-export const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
+export const Sidebar = ({ activeTab, isOpen, setIsOpen }) => {
   const { user, handleLogout } = useAuth();
   const { aiStatus } = useContext(FinanceContext);
-
-  const handleNavClick = (tab) => {
-    setActiveTab(tab);
-    setIsOpen(false);
-  };
+  const navigate = useNavigate();
 
   const items = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -24,21 +22,22 @@ export const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
 
   return (
     <>
-      <button
-        className="sidebar-toggle"
-        onClick={() => setIsOpen((prev) => !prev)}
-        aria-label={isOpen ? 'Close sidebar' : 'Open sidebar'}
-      >
-        {isOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
-
       {isOpen && <div className="sidebar-backdrop" onClick={() => setIsOpen(false)} />}
 
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div>
           <div className="logo-container">
             <span className="logo-text">Floony</span>
+            <span className="landing-rule" aria-hidden="true" />
             <span className="logo-badge">AI</span>
+            <button
+              type="button"
+              className="sidebar-collapse"
+              title="Collapse sidebar"
+              onClick={() => setIsOpen(false)}
+            >
+              <PanelLeftClose size={16} />
+            </button>
           </div>
 
           <div className="user-profile-block">
@@ -47,7 +46,14 @@ export const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
               <span className="user-name">{user?.username}</span>
               <span className="user-email">{user?.email}</span>
             </div>
-            <button className="logout-btn" title="Logout" onClick={handleLogout}>
+            <button
+              className="logout-btn"
+              title="Logout"
+              onClick={() => {
+                handleLogout();
+                navigate('/');
+              }}
+            >
               <LogOut size={16} />
             </button>
           </div>
@@ -56,23 +62,26 @@ export const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
             {items.map((item) => {
               const Icon = item.icon;
               return (
-                <div
+                <Link
                   key={item.id}
+                  to={pathFromTab(item.id)}
                   className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                  onClick={() => handleNavClick(item.id)}
+                  onClick={() => {
+                    if (window.innerWidth <= 768) setIsOpen(false);
+                  }}
                 >
                   <Icon size={18} />
                   {item.label}
-                </div>
+                </Link>
               );
             })}
           </nav>
         </div>
 
         <div className="sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            <Sparkles size={12} style={{ color: 'var(--accent)' }} />
-            <span>AI Status: {aiStatus}</span>
+          <div className="sidebar-status">
+            <Sparkles size={12} />
+            <span>{aiStatus}</span>
           </div>
         </div>
       </aside>

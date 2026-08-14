@@ -17,6 +17,8 @@ import {
   Cell
 } from 'recharts';
 
+import { useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { tabFromPath, pathFromTab, isPublicPath } from './utils/routes';
 import { AuthProvider } from './context/AuthContext';
 import { FinanceProvider, FinanceContext } from './context/FinanceContext';
 import { useAuth } from './hooks/useAuth';
@@ -50,6 +52,9 @@ import { MonthlyWrap } from './components/Wrap/MonthlyWrap';
 
 function AppContent() {
   const { token } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeTab = tabFromPath(location.pathname) || 'dashboard';
   const {
     currency,
     fxRates,
@@ -66,11 +71,12 @@ function AppContent() {
     exportCsv
   } = useContext(FinanceContext);
 
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 768 : true
+  );
 
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterType, setFilterType] = useState('All');
@@ -79,7 +85,21 @@ function AppContent() {
   const [dateTo, setDateTo] = useState('');
   const [sortDir, setSortDir] = useState('desc');
 
-  if (!token) return <AuthLayout />;
+  if (token && (location.pathname === '/login' || location.pathname === '/signup')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!token && !isPublicPath(location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (!token || location.pathname === '/') {
+    return <AuthLayout />;
+  }
+
+  if (!tabFromPath(location.pathname)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const currentCurrencySymbol = CURRENCIES[currency] || '₹';
   const scoped = periodTransactions;
@@ -146,11 +166,15 @@ function AppContent() {
 
   return (
     <div className={`app-container ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <div className="brand-wash app-wash" aria-hidden="true" />
+      <div className="brand-grain app-grain" aria-hidden="true" />
+      <Sidebar activeTab={activeTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
-      <main className="main-content">
+      <main className={`main-content ${activeTab === 'ai-coach' ? 'main-ai' : ''}`}>
         <Header
           activeTab={activeTab}
+          sidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
           onAddTransactionClick={() => {
             setEditingTransaction(null);
             setIsModalOpen(true);
@@ -224,7 +248,7 @@ function AppContent() {
                 <span>Recent in this period</span>
                 <span
                   style={{ fontSize: '0.8rem', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                  onClick={() => setActiveTab('transactions')}
+                  onClick={() => navigate(pathFromTab('transactions'))}
                 >
                   View full ledger <ChevronRight size={14} />
                 </span>

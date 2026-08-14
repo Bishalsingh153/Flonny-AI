@@ -1,10 +1,10 @@
 import React, { useContext } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Menu } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { FinanceContext } from '../../context/FinanceContext';
 import { PeriodSelector } from './PeriodSelector';
 
-export const Header = ({ activeTab, onAddTransactionClick }) => {
+export const Header = ({ activeTab, onAddTransactionClick, sidebarOpen, onToggleSidebar }) => {
   const { user } = useAuth();
   const { currency, setCurrency, clearChat } = useContext(FinanceContext);
 
@@ -23,7 +23,7 @@ export const Header = ({ activeTab, onAddTransactionClick }) => {
 
   const getSubtitle = () => {
     switch (activeTab) {
-      case 'dashboard': return `Welcome back, ${user?.username}. Numbers below follow the selected period.`;
+      case 'dashboard': return `Welcome back, ${user?.username}. Numbers follow the selected period.`;
       case 'transactions': return 'Search, filter, import bank CSVs, and export your ledger.';
       case 'ai-coach': return 'Text chat with Floony. Ledger numbers, TARS energy.';
       case 'budgets': return 'Monthly limits compared against the selected period.';
@@ -38,18 +38,29 @@ export const Header = ({ activeTab, onAddTransactionClick }) => {
 
   return (
     <header className="header-section">
-      <div>
-        <h1 className="page-title">{getTitle()}</h1>
+      <div className="header-copy">
+        <div className="header-title-row">
+          {!sidebarOpen && (
+            <button
+              type="button"
+              className="sidebar-toggle in-header"
+              onClick={onToggleSidebar}
+              aria-label="Open sidebar"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+          <h1 className="page-title">{getTitle()}</h1>
+        </div>
         <p className="page-subtitle">{getSubtitle()}</p>
         {showPeriod && <PeriodSelector />}
       </div>
 
-      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '0.5rem' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Display:</span>
+      <div className="header-actions">
+        <label className="display-field">
+          <span>Display</span>
           <select
             className="form-control"
-            style={{ width: '100px', padding: '0.4rem 0.5rem', minWidth: 'auto', height: '36px' }}
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
           >
@@ -59,10 +70,10 @@ export const Header = ({ activeTab, onAddTransactionClick }) => {
             <option value="GBP">GBP (£)</option>
             <option value="JPY">JPY (¥)</option>
           </select>
-        </div>
+        </label>
 
         {activeTab === 'ai-coach' && (
-          <button className="btn btn-secondary" onClick={clearChat}>Clear Conversation</button>
+          <button className="btn btn-secondary" onClick={clearChat}>Clear</button>
         )}
         <button className="btn" onClick={onAddTransactionClick}>
           <Plus size={16} />
