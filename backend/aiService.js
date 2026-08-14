@@ -250,7 +250,16 @@ async function parseExpenseWithGemini(text) {
   }
 }
 
-async function parseReceiptWithGemini(buffer, mimeType) {
+function receiptMime(mimeType, filename) {
+  const mime = String(mimeType || '').toLowerCase();
+  if (mime === 'application/pdf' || /\.pdf$/i.test(filename || '')) return 'application/pdf';
+  if (mime.startsWith('image/')) return mime;
+  if (/\.(png)$/i.test(filename || '')) return 'image/png';
+  if (/\.(webp)$/i.test(filename || '')) return 'image/webp';
+  return mime || 'image/jpeg';
+}
+
+async function parseReceiptWithGemini(buffer, mimeType, filename) {
   const fallback = {
     amount: 0,
     type: 'expense',
@@ -265,11 +274,12 @@ async function parseReceiptWithGemini(buffer, mimeType) {
 
   try {
     const todayDate = new Date().toISOString().split('T')[0];
+    const mime = receiptMime(mimeType, filename);
     const result = await generateWithGemini({
       contents: [{
         role: 'user',
         parts: [
-          { text: `You are Floony AI. Read this receipt or UPI/payment screenshot.
+          { text: `You are Floony AI. Read this receipt, UPI/payment screenshot, or PDF bill.
 Today is ${todayDate}. Extract a single transaction as JSON only:
 {
   "amount": number,
@@ -279,10 +289,11 @@ Today is ${todayDate}. Extract a single transaction as JSON only:
   "merchant": string,
   "date": "YYYY-MM-DD",
   "description": string
-}` },
+}
+If the PDF has several line items, use the grand total as amount and name the merchant from the header.` },
           {
             inlineData: {
-              mimeType: mimeType || 'image/jpeg',
+              mimeType: mime,
               data: buffer.toString('base64')
             }
           }

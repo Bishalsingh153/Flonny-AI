@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { X } from 'lucide-react';
 import { CATEGORIES } from '../../constants/categories';
 import { FinanceContext } from '../../context/FinanceContext';
 import { toDisplay } from '../../utils/displayAmount';
+import { Modal } from '../UI/Modal';
 
 export const TransactionModal = ({
   isOpen,
@@ -57,18 +57,12 @@ export const TransactionModal = ({
     });
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h3 className="modal-title">
-            {editingTransaction ? 'Edit Ledger Record' : 'Log Transaction'}
-          </h3>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editingTransaction ? 'Edit Ledger Record' : 'Log Transaction'}
+    >
         <form onSubmit={handleSubmit}>
           <div className="form-row">
             <div className="form-group">
@@ -145,7 +139,6 @@ export const TransactionModal = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };

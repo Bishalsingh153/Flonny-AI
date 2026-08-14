@@ -1,14 +1,12 @@
 import React, { useContext, useState } from 'react';
-import { X } from 'lucide-react';
 import { FinanceContext } from '../../context/FinanceContext';
+import { Modal } from '../UI/Modal';
 
 export const ImportModal = ({ isOpen, onClose }) => {
   const { previewImport, confirmImport } = useContext(FinanceContext);
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState(null);
   const [busy, setBusy] = useState(false);
-
-  if (!isOpen) return null;
 
   const onFile = async (file) => {
     const text = await file.text();
@@ -39,12 +37,7 @@ export const ImportModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '820px' }}>
-        <div className="modal-header">
-          <h3 className="modal-title">Import statement CSV</h3>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose} title="Import statement CSV" wide>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
           Works with Floony exports and common Indian bank columns (Date, Narration, Withdrawal, Deposit). Duplicates (same date, amount, merchant) are skipped.
         </p>
@@ -90,7 +83,6 @@ export const ImportModal = ({ isOpen, onClose }) => {
             Import selected
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

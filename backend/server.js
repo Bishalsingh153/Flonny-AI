@@ -29,7 +29,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
 
 if (process.env.NODE_ENV !== 'production') {
   app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'], credentials: true }));
@@ -365,9 +365,9 @@ app.post('/api/ai/parse', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/ai/parse-receipt', authenticateToken, upload.single('receipt'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Missing receipt image' });
+  if (!req.file) return res.status(400).json({ error: 'Missing receipt file' });
   try {
-    const parsed = await parseReceiptWithGemini(req.file.buffer, req.file.mimetype);
+    const parsed = await parseReceiptWithGemini(req.file.buffer, req.file.mimetype, req.file.originalname);
     parsed.source = 'receipt';
     res.json(parsed);
   } catch (error) {

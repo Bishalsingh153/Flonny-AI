@@ -1,8 +1,9 @@
 import React, { useContext, useRef, useState } from 'react';
-import { X, Check, Sparkles, Mic, ImagePlus } from 'lucide-react';
+import { Check, Sparkles, Mic, ImagePlus } from 'lucide-react';
 import { FinanceContext } from '../../context/FinanceContext';
 import { CURRENCIES } from '../../constants/currencies';
 import { getCategoryBadgeClass } from '../../constants/categories';
+import { Modal } from '../UI/Modal';
 
 export const AiParseBox = () => {
   const {
@@ -45,7 +46,7 @@ export const AiParseBox = () => {
     <div className="animate-fade-in">
       <div className="ai-box-container">
         <div className="ai-box-header">
-          Log with text, voice, or a receipt photo
+          Log with text, voice, a receipt photo, or a PDF
         </div>
         <form onSubmit={handleAiParse} className="ai-input-wrapper">
           <input
@@ -59,13 +60,13 @@ export const AiParseBox = () => {
           <button type="button" className={`btn btn-secondary ${listening ? 'listening' : ''}`} onClick={startVoice} disabled={isAiParsing} title="Voice log">
             <Mic size={16} />
           </button>
-          <button type="button" className="btn btn-secondary" onClick={() => fileRef.current?.click()} disabled={isAiParsing} title="Upload receipt">
+          <button type="button" className="btn btn-secondary" onClick={() => fileRef.current?.click()} disabled={isAiParsing} title="Upload receipt photo or PDF">
             <ImagePlus size={16} />
           </button>
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.pdf"
             hidden
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -89,17 +90,12 @@ export const AiParseBox = () => {
       </div>
 
       {aiPreview && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Sparkles size={18} style={{ color: 'var(--accent)' }} />
-                Verify AI Log
-              </h3>
-              <button className="modal-close" onClick={() => setAiPreview(null)}>
-                <X size={18} />
-              </button>
-            </div>
+        <Modal title={<><Sparkles size={18} style={{ color: 'var(--accent)' }} /> Verify AI Log</>} isOpen onClose={() => setAiPreview(null)}>
+            {/could not read receipt/i.test(aiPreview.description || '') && (
+              <div className="auth-error-box" style={{ marginBottom: '1rem' }}>
+                Gemini could not read this file — quota is likely used up. Log it as text, or try the photo again later.
+              </div>
+            )}
 
             <div className="ai-preview-box">
               <div className="ai-preview-title">Parsed Transaction</div>
@@ -147,14 +143,18 @@ export const AiParseBox = () => {
             </p>
 
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setAiPreview(null)}>Cancel</button>
-              <button className="btn" onClick={handleApproveAiPreview}>
+              <button className="btn btn-secondary" type="button" onClick={() => setAiPreview(null)}>Cancel</button>
+              <button
+                className="btn"
+                type="button"
+                onClick={handleApproveAiPreview}
+                disabled={/could not read receipt/i.test(aiPreview.description || '') || !Number(aiPreview.amount)}
+              >
                 <Check size={16} />
                 Approve & Save
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
