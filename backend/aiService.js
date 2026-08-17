@@ -1,5 +1,6 @@
 const { CATEGORIES, CATEGORY_LIST } = require('./categories');
 const { monthBounds, summarizePeriod } = require('./insightsService');
+const { classifyLocally, classifierThreshold } = require('./localClassifier');
 
 const GEMINI_MODELS = [
   process.env.GEMINI_MODEL || 'gemini-3.5-flash',
@@ -89,6 +90,33 @@ function engineNotice(engine) {
     return `Gemini quota is used up. Answering from your ledger. Will try Gemini again in about ${mins} min.`;
   }
   return 'Gemini is unavailable. Answering from your ledger.';
+}
+
+async function generateStreamWithGemini(request) {
+  if (!shouldUseGemini()) {
+    const err = new Error('GEMINI_BLOCKED');
+    err.code = 'blocked';
+    throw err;
+  }
+  let lastErr;
+  for (const modelName of GEMINI_MODELS) {
+    try {
+      const model = getModel(process.env.GEMINI_API_KEY, modelName);
+      const streaming = await withTimeout(model.generateContentStream(request), 25000);
+      markGeminiOk(modelName);
+      return streaming;
+    } catch (error) {
+      lastErr = error;
+      const msg = String(error?.message || error || '');
+      if (/429|quota|Too Many Requests|RESOURCE_EXHAUSTED/i.test(msg)) {
+        markGeminiQuota(error, modelName);
+        continue;
+      }
+      if (/404|not found|no longer available/i.test(msg)) continue;
+      throw error;
+    }
+  }
+  throw lastErr || new Error('Gemini failed');
 }
 
 async function generateWithGemini(request) {
@@ -211,8 +239,10 @@ function normalizeParsed(parsed) {
   };
 }
 
-async function parseExpenseWithGemini(text) {
-  if (!shouldUseGemini()) return parseExpenseTextFallback(text);
+async function parseExpenseFields(text) {
+  if (!shouldUseGemini()) {
+    return { parsed: parseExpenseTextFallback(text), fieldsPath: 'ledger fallback' };
+  }
 
   try {
     const todayDate = new Date().toISOString().split('T')[0];
@@ -242,12 +272,35 @@ async function parseExpenseWithGemini(text) {
     const parsed = JSON.parse(cleanJson(result.response.text().trim()));
     const normalized = normalizeParsed(parsed);
     normalized.original_amount = normalized.amount;
-    return normalized;
+    return { parsed: normalized, fieldsPath: 'gemini' };
   } catch (error) {
     console.error('Error calling Gemini API for expense parsing:', error.message || error);
     if (isQuotaOrTimeout(error) || error.code === 'blocked') markGeminiQuota(error, geminiGate.lastModel);
-    return parseExpenseTextFallback(text);
+    return { parsed: parseExpenseTextFallback(text), fieldsPath: 'ledger fallback' };
   }
+}
+
+async function parseExpenseWithGemini(text) {
+  const local = await classifyLocally(text);
+  const threshold = classifierThreshold();
+  const useClassifier = Boolean(
+    local && local.confidence >= threshold && CATEGORIES.includes(local.category)
+  );
+
+  if (useClassifier) {
+    const parsed = parseExpenseTextFallback(text);
+    parsed.category = local.category;
+    parsed.original_amount = parsed.amount;
+    console.debug(
+      `[ai/parse] category_path=classifier fields_path=ledger fallback confidence=${local.confidence}`
+    );
+    return parsed;
+  }
+
+  const fieldResult = await parseExpenseFields(text);
+  const categoryPath = fieldResult.fieldsPath === 'gemini' ? 'gemini' : 'ledger fallback';
+  console.debug(`[ai/parse] category_path=${categoryPath} fields_path=${fieldResult.fieldsPath}`);
+  return fieldResult.parsed;
 }
 
 function receiptMime(mimeType, filename) {
@@ -485,11 +538,30 @@ function withTimeout(promise, ms = 8000) {
   ]);
 }
 
-async function* yieldTyped(text) {
+async function* yieldWords(text) {
   const clean = looksLikeApiDump(text)
-    ? `Cloud brain is rate limited. I still have the ledger. Ask about this month.`
+    ? 'Cloud brain is rate limited. I still have the ledger. Ask about this month.'
     : String(text || '');
-  yield { type: 'token', text: clean };
+  const parts = clean.split(/(\s+)/);
+  for (const part of parts) {
+    if (!part) continue;
+    yield { type: 'token', text: part };
+    if (/\S/.test(part)) await sleep(16);
+  }
+}
+
+function chunkPayload(chunk) {
+  const parts = chunk?.candidates?.[0]?.content?.parts || [];
+  const calls = [];
+  const texts = [];
+  parts.forEach((part) => {
+    if (part.functionCall) calls.push(part.functionCall);
+    if (part.text) texts.push(part.text);
+  });
+  if (typeof chunk.functionCalls === 'function') {
+    (chunk.functionCalls() || []).forEach((call) => calls.push(call));
+  }
+  return { text: texts.join(''), calls };
 }
 
 function generateFinancialAdviceFallback(transactions, budgets, chatHistory) {
@@ -555,10 +627,11 @@ async function* yieldEngineReply(engine, reply, pendingAction) {
   const notice = engineNotice(engine);
   yield { type: 'source', engine, notice, status: checkGeminiAvailability() };
   if (pendingAction) yield { type: 'pendingAction', action: pendingAction };
-  const clean = looksLikeApiDump(reply)
-    ? 'Cloud brain hit a quota wall. I still have the ledger.'
-    : String(reply || '');
-  yield { type: 'token', text: `${notice}\n\n${clean}` };
+  yield* yieldWords(
+    looksLikeApiDump(reply)
+      ? 'Cloud brain hit a quota wall. I still have the ledger.'
+      : String(reply || '')
+  );
 }
 
 async function* streamFinancialAdvice(transactions, budgets, chatHistory, goals) {
@@ -572,42 +645,62 @@ async function* streamFinancialAdvice(transactions, budgets, chatHistory, goals)
 
   try {
     const prompt = buildCoachPrompt(transactions, budgets, chatHistory, goals);
-    const result = await generateWithGemini({
+    const streaming = await generateStreamWithGemini({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       tools: COACH_TOOLS
     });
-    const call = extractCalls(result)[0];
+
+    yield {
+      type: 'source',
+      engine: 'gemini',
+      notice: engineNotice('gemini'),
+      status: checkGeminiAvailability()
+    };
+
+    const calls = [];
+    let streamedText = false;
+    for await (const chunk of streaming.stream) {
+      const parsed = chunkPayload(chunk);
+      if (parsed.calls.length) calls.push(...parsed.calls);
+      if (parsed.text && !calls.length) {
+        const piece = looksLikeApiDump(parsed.text) ? '' : parsed.text;
+        if (piece) {
+          streamedText = true;
+          yield { type: 'token', text: piece };
+        }
+      }
+    }
+
+    const call = calls[0];
 
     if (call && call.name === 'log_transaction') {
       const payload = normalizeParsed(call.args || {});
       payload.original_amount = payload.amount;
       payload.original_currency = payload.original_currency || 'INR';
-      yield* yieldEngineReply(
-        'gemini',
-        `I can log ${payload.amount} rupees at ${payload.merchant || 'that merchant'} under ${payload.category}. Confirm and I will save it.`,
-        { type: 'log_transaction', payload }
-      );
+      yield { type: 'pendingAction', action: { type: 'log_transaction', payload } };
+      if (!streamedText) {
+        yield* yieldWords(
+          `I can log ${payload.amount} rupees at ${payload.merchant || 'that merchant'} under ${payload.category}. Confirm and I will save it.`
+        );
+      }
       return;
     }
 
     if (call && call.name === 'update_budget') {
       const category = call.args?.category;
       const amount = Number(call.args?.amount) || 0;
-      yield* yieldEngineReply(
-        'gemini',
-        `I can set your ${category} monthly cap to ₹${amount}. Confirm and I'll apply it.`,
-        { type: 'update_budget', payload: { category, amount } }
-      );
+      yield { type: 'pendingAction', action: { type: 'update_budget', payload: { category, amount } } };
+      if (!streamedText) {
+        yield* yieldWords(`I can set your ${category} monthly cap to ₹${amount}. Confirm and I'll apply it.`);
+      }
       return;
     }
 
     if ((call && call.name === 'query_spend') || looksLikeSpendQuestion(lastMsg)) {
-      yield* yieldEngineReply('gemini', fallback.reply, null);
+      if (!streamedText) yield* yieldWords(fallback.reply);
       return;
     }
-
-    const full = result.response.text();
-    yield* yieldEngineReply('gemini', full, null);
+    if (!streamedText) yield* yieldWords(fallback.reply);
   } catch (error) {
     console.error('Error calling Gemini API for financial advice:', error.message || error);
     if (isQuotaOrTimeout(error) || error.code === 'blocked') {

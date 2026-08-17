@@ -35,6 +35,7 @@ import { AuthLayout } from './components/Layout/AuthLayout';
 
 import { MetricCard } from './components/Dashboard/MetricCard';
 import { BudgetHealth } from './components/Dashboard/BudgetHealth';
+import { ForecastHint } from './components/Dashboard/ForecastHint';
 import { SpendingChart } from './components/Dashboard/SpendingChart';
 import { RecentTransactions } from './components/Dashboard/RecentTransactions';
 
@@ -64,6 +65,7 @@ function AppContent() {
     transactions,
     budgets,
     insights,
+    forecasts,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -236,6 +238,7 @@ function AppContent() {
                 <BudgetHealth
                   budgets={budgets}
                   categorySpendMap={categorySpendMap}
+                  forecasts={forecasts}
                   currencySymbol={currentCurrencySymbol}
                   currency={currency}
                   fxRates={fxRates}
@@ -332,27 +335,37 @@ function AppContent() {
                     const budget = budgets.find((b) => b.category === cat);
                     const budgetAmount = budget ? budget.amount : 0;
                     return (
-                      <div key={cat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{cat}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{currentCurrencySymbol}</span>
-                          <input
-                            type="number"
-                            className="form-control"
-                            style={{ width: '120px', padding: '0.4rem 0.75rem' }}
-                            value={budgetAmount ? Math.round(toDisplay(budgetAmount, currency, fxRates)) : ''}
-                            onChange={(e) => {
-                              const display = parseFloat(e.target.value);
-                              if (Number.isNaN(display)) {
-                                handleBudgetChange(cat, 0);
-                                return;
-                              }
-                              const inr = currency === 'INR' || !fxRates[currency] ? display : display / fxRates[currency];
-                              handleBudgetChange(cat, inr);
-                            }}
-                            placeholder="Set budget"
-                          />
+                      <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{cat}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{currentCurrencySymbol}</span>
+                            <input
+                              type="number"
+                              className="form-control"
+                              style={{ width: '120px', padding: '0.4rem 0.75rem' }}
+                              value={budgetAmount ? Math.round(toDisplay(budgetAmount, currency, fxRates)) : ''}
+                              onChange={(e) => {
+                                const display = parseFloat(e.target.value);
+                                if (Number.isNaN(display)) {
+                                  handleBudgetChange(cat, 0);
+                                  return;
+                                }
+                                const inr = currency === 'INR' || !fxRates[currency] ? display : display / fxRates[currency];
+                                handleBudgetChange(cat, inr);
+                              }}
+                              placeholder="Set budget"
+                            />
+                          </div>
                         </div>
+                        {budgetAmount ? (
+                          <ForecastHint
+                            forecast={forecasts?.[cat]}
+                            currencySymbol={currentCurrencySymbol}
+                            currency={currency}
+                            fxRates={fxRates}
+                          />
+                        ) : null}
                       </div>
                     );
                   })}

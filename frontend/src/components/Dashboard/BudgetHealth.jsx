@@ -2,8 +2,9 @@ import React from 'react';
 import { Wallet } from 'lucide-react';
 import { EmptyState } from '../UI/EmptyState';
 import { formatDisplay } from '../../utils/displayAmount';
+import { ForecastHint } from './ForecastHint';
 
-export const BudgetHealth = ({ budgets, categorySpendMap, currencySymbol, currency, fxRates }) => {
+export const BudgetHealth = ({ budgets, categorySpendMap, forecasts, currencySymbol, currency, fxRates }) => {
   if (budgets.length === 0) {
     return (
       <EmptyState
@@ -35,6 +36,12 @@ export const BudgetHealth = ({ budgets, categorySpendMap, currencySymbol, curren
             <div className="budget-bar-bg">
               <div className={`budget-bar-fill ${barColor}`} style={{ width: `${percentage}%` }}></div>
             </div>
+            <ForecastHint
+              forecast={forecasts?.[b.category]}
+              currencySymbol={currencySymbol}
+              currency={currency}
+              fxRates={fxRates}
+            />
           </div>
         );
       })}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ReceiptText } from 'lucide-react';
+import { ReceiptText, AlertTriangle } from 'lucide-react';
 import { Badge } from '../UI/Badge';
 import { EmptyState } from '../UI/EmptyState';
 import { formatDisplay } from '../../utils/displayAmount';
@@ -28,7 +28,14 @@ export const RecentTransactions = ({ transactions, currencySymbol, currency, fxR
         {transactions.slice(0, 5).map((t) => (
           <tr key={t.id}>
             <td>
-              <div style={{ fontWeight: 600 }}>{t.merchant || 'Unknown Merchant'}</div>
+              <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                {t.merchant || 'Unknown Merchant'}
+                {t.is_anomaly ? (
+                  <span className="anomaly-flag" title={t.anomaly_reason || 'Unusual amount for this category'}>
+                    <AlertTriangle size={12} /> Unusual
+                  </span>
+                ) : null}
+              </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t.description || 'No description'}</div>
             </td>
             <td><Badge category={t.category} /></td>

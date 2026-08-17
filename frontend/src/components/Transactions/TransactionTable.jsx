@@ -32,7 +32,7 @@ export const TransactionTable = ({ transactions, onEdit, onDelete }) => {
               <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 {t.merchant || 'N/A'}
                 {t.is_anomaly ? (
-                  <span className="anomaly-flag" title="Unusual amount or new merchant">
+                  <span className="anomaly-flag" title={t.anomaly_reason || 'Unusual amount for this category'}>
                     <AlertTriangle size={12} /> Unusual
                   </span>
                 ) : null}

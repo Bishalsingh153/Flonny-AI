@@ -25,6 +25,7 @@ export const FinanceProvider = ({ children }) => {
   const [recurringSuggestions, setRecurringSuggestions] = useState([]);
   const [insights, setInsights] = useState(null);
   const [wrap, setWrap] = useState(null);
+  const [forecasts, setForecasts] = useState({});
 
   const [periodPreset, setPeriodPreset] = useState('this_month');
   const [customStart, setCustomStart] = useState('');
@@ -59,6 +60,24 @@ export const FinanceProvider = ({ children }) => {
     });
   };
 
+  const loadForecasts = async (budgetRows) => {
+    const list = (budgetRows || []).filter((b) => Number(b.amount) > 0);
+    if (!list.length) {
+      setForecasts({});
+      return;
+    }
+    const pairs = await Promise.all(list.map(async (b) => {
+      try {
+        const res = await authFetch(`${API_BASE}/forecast/${encodeURIComponent(b.category)}`);
+        if (!res.ok) return [b.category, null];
+        return [b.category, await res.json()];
+      } catch {
+        return [b.category, null];
+      }
+    }));
+    setForecasts(Object.fromEntries(pairs));
+  };
+
   const fetchData = async () => {
     if (!token) return;
     try {
@@ -72,7 +91,8 @@ export const FinanceProvider = ({ children }) => {
         authFetch(`${API_BASE}/insights`)
       ]);
       setTransactions(await tRes.json());
-      setBudgets(await bRes.json());
+      const budgetRows = await bRes.json();
+      setBudgets(budgetRows);
       setGoals(await gRes.json());
       setRecurring(await rRes.json());
       const fx = await fxRes.json();
@@ -83,6 +103,7 @@ export const FinanceProvider = ({ children }) => {
 
       const sugRes = await authFetch(`${API_BASE}/recurring/suggestions`);
       setRecurringSuggestions(await sugRes.json());
+      await loadForecasts(budgetRows);
     } catch (error) {
       console.error('Error fetching ledger data:', error);
     }
@@ -117,6 +138,7 @@ export const FinanceProvider = ({ children }) => {
       setRecurring([]);
       setInsights(null);
       setWrap(null);
+      setForecasts({});
       setChatHistory(DEFAULT_CHAT);
       setPendingAction(null);
     }
@@ -254,13 +276,14 @@ export const FinanceProvider = ({ children }) => {
       setChatHistory((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
-        if (last?.role === 'assistant' && !last.content) {
-          next[next.length - 1] = {
-            role: 'assistant',
-            engine: 'fallback',
-            content: 'Gemini quota is used up. Answering from your ledger.\n\nI hit a connection error. Try that once more?'
-          };
-        }
+        if (last?.role !== 'assistant') return next;
+        next[next.length - 1] = {
+          ...last,
+          engine: last.engine || 'fallback',
+          content: last.content
+            ? `${last.content}\n\n(Connection dropped. That's all I got.)`
+            : 'I hit a connection error. Try that once more?'
+        };
         return next;
       });
       return '';
@@ -277,12 +300,15 @@ export const FinanceProvider = ({ children }) => {
     });
     const data = await res.json();
     if (data.transaction) setTransactions([data.transaction, ...transactions]);
+    let nextBudgets = budgets;
     if (data.budget) {
       const exists = budgets.some((b) => b.category === data.budget.category);
-      setBudgets(exists ? budgets.map((b) => (b.category === data.budget.category ? data.budget : b)) : [...budgets, data.budget]);
+      nextBudgets = exists ? budgets.map((b) => (b.category === data.budget.category ? data.budget : b)) : [...budgets, data.budget];
+      setBudgets(nextBudgets);
     }
     setPendingAction(null);
     triggerCelebration();
+    loadForecasts(nextBudgets);
   };
 
   const clearChat = async () => {
@@ -304,6 +330,7 @@ export const FinanceProvider = ({ children }) => {
     const created = await res.json();
     setTransactions([created, ...transactions]);
     triggerCelebration();
+    loadForecasts(budgets);
     return created;
   };
 
@@ -318,12 +345,14 @@ export const FinanceProvider = ({ children }) => {
     });
     const updated = await res.json();
     setTransactions(transactions.map((t) => (t.id === id ? updated : t)));
+    loadForecasts(budgets);
     return updated;
   };
 
   const deleteTransaction = async (id) => {
     await authFetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE' });
     setTransactions(transactions.filter((t) => t.id !== id));
+    loadForecasts(budgets);
   };
 
   const handleBudgetChange = async (category, amount) => {
@@ -334,7 +363,9 @@ export const FinanceProvider = ({ children }) => {
       });
       const updated = await res.json();
       const exists = budgets.some((b) => b.category === category);
-      setBudgets(exists ? budgets.map((b) => (b.category === category ? updated : b)) : [...budgets, updated]);
+      const next = exists ? budgets.map((b) => (b.category === category ? updated : b)) : [...budgets, updated];
+      setBudgets(next);
+      loadForecasts(next);
     } catch (error) {
       console.error('Error updating budget:', error);
     }
@@ -357,6 +388,7 @@ export const FinanceProvider = ({ children }) => {
     if (data.transactions?.length) {
       setTransactions([...data.transactions, ...transactions]);
       triggerCelebration();
+      loadForecasts(budgets);
     }
     return data;
   };
@@ -440,6 +472,7 @@ export const FinanceProvider = ({ children }) => {
       recurringSuggestions,
       insights,
       wrap,
+      forecasts,
       loadWrap,
       aiStatus,
       aiInput,

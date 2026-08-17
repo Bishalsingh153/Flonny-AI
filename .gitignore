@@ -16,3 +16,9 @@ backend/dist/
 
 # Logs
 *.log
+
+# Python classifier
+.venv/
+backend/ml/.venv/
+backend/ml/**/__pycache__/
+backend/ml/**/*.pyc

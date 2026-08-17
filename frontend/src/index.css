@@ -1184,8 +1184,14 @@ body {
   font-weight: 600;
 }
 
-.budget-limits {
-  color: var(--text-secondary);
+.forecast-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.forecast-hint.warning {
+  color: #f59e0b;
 }
 
 .budget-bar-bg {

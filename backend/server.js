@@ -16,10 +16,12 @@ const {
 const { hashPassword, verifyPassword, generateToken, authenticateToken } = require('./authService');
 const { getRates, toInr } = require('./fxService');
 const { mapCsvText, duplicateKey } = require('./csvImport');
+const { logTiming, timingMs, startClassifierWorker } = require('./localClassifier');
+const { annotateTransactions, withAnomaly } = require('./anomalyService');
+const { forecastFromExpenses, currentMonthRange } = require('./forecastService');
 const {
   monthBounds,
   summarizePeriod,
-  computeAnomalyIds,
   detectRecurringSuggestions,
   buildDeterministicInsights
 } = require('./insightsService');
@@ -48,8 +50,11 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 initDb()
-  .then(() => {
+  .then(async () => {
     console.log('Database connected and initialized.');
+    const classifierUp = await startClassifierWorker();
+    if (classifierUp) console.log('Local category classifier worker ready.');
+    else console.log('Local category classifier unavailable; NL parse will use Gemini/regex.');
     app.listen(PORT, () => {
       console.log(`Floony backend server running on port ${PORT}`);
     });
@@ -166,8 +171,7 @@ app.get('/api/transactions', authenticateToken, async (req, res) => {
       'SELECT * FROM transactions WHERE user_id = $1 ORDER BY date DESC, id DESC',
       [req.user.id]
     );
-    const anomalyIds = computeAnomalyIds(transactionsRes.rows);
-    res.json(transactionsRes.rows.map((t) => ({ ...t, is_anomaly: anomalyIds.has(t.id) })));
+    res.json(annotateTransactions(transactionsRes.rows));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to retrieve transactions' });
@@ -235,7 +239,7 @@ app.post('/api/transactions/import', authenticateToken, async (req, res) => {
         ...fx,
         source: 'import'
       }));
-      created.push(result.rows[0]);
+      created.push(await withAnomaly(req.user.id, result.rows[0]));
     }
     res.status(201).json({ created: created.length, transactions: created });
   } catch (error) {
@@ -254,7 +258,7 @@ app.post('/api/transactions', authenticateToken, async (req, res) => {
     const fx = await convertIncomingAmount(req.body, rates);
     const db = getDb();
     const result = await db.query(TX_INSERT, txInsertFields(req.user.id, { ...req.body, ...fx }));
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(await withAnomaly(req.user.id, result.rows[0]));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to create transaction' });
@@ -293,7 +297,7 @@ app.put('/api/transactions/:id', authenticateToken, async (req, res) => {
         req.user.id
       ]
     );
-    res.json(updatedRes.rows[0]);
+    res.json(await withAnomaly(req.user.id, updatedRes.rows[0]));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to update transaction' });
@@ -311,6 +315,34 @@ app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to delete transaction' });
+  }
+});
+
+app.get('/api/forecast/:category', authenticateToken, async (req, res) => {
+  const category = decodeURIComponent(req.params.category || '').trim();
+  if (!category) return res.status(400).json({ error: 'Missing category' });
+  try {
+    const db = getDb();
+    const month = currentMonthRange();
+    const [txRes, budgetRes] = await Promise.all([
+      db.query(
+        `SELECT date, amount, type FROM transactions
+         WHERE user_id = $1 AND type = 'expense' AND category = $2
+           AND date >= $3 AND date <= $4`,
+        [req.user.id, category, month.start, month.end]
+      ),
+      db.query(
+        'SELECT amount FROM budgets WHERE user_id = $1 AND category = $2',
+        [req.user.id, category]
+      )
+    ]);
+    const budgetRow = budgetRes.rows[0];
+    const budgetLimit = budgetRow && Number(budgetRow.amount) > 0 ? Number(budgetRow.amount) : null;
+    const forecast = forecastFromExpenses(txRes.rows, budgetLimit, month.daysInMonth);
+    res.json({ category, ...forecast });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to compute forecast' });
   }
 });
 
@@ -354,6 +386,7 @@ app.get('/api/ai/status', authenticateToken, async (req, res) => {
 app.post('/api/ai/parse', authenticateToken, async (req, res) => {
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: 'Missing parameter: text' });
+  const parseStarted = process.hrtime.bigint();
   try {
     const parsedData = await parseExpenseWithGemini(text);
     parsedData.source = 'nl';
@@ -361,6 +394,8 @@ app.post('/api/ai/parse', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Parsing error:', error);
     res.status(500).json({ error: 'AI failed to parse expense description' });
+  } finally {
+    logTiming('parse-total', timingMs(parseStarted));
   }
 });
 
@@ -427,9 +462,57 @@ app.post('/api/ai/chat/stream', authenticateToken, async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
 
-  const send = (payload) => {
-    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  let clientGone = false;
+  const markGone = () => { clientGone = true; };
+  const sock = res.socket || req.socket;
+  req.on('aborted', markGone);
+  res.on('close', markGone);
+  res.on('error', markGone);
+  sock?.on('close', markGone);
+  sock?.on('error', markGone);
+
+  const connectionDead = () => {
+    const s = res.socket || req.socket;
+    return clientGone
+      || res.writableEnded
+      || res.destroyed
+      || !res.writable
+      || Boolean(s?.destroyed)
+      || s?.readyState === 'closed';
   };
+
+  const send = (payload) => {
+    if (connectionDead()) {
+      clientGone = true;
+      return;
+    }
+    try {
+      const s = res.socket || req.socket;
+      const ok = res.write(`data: ${JSON.stringify(payload)}\n\n`, (err) => {
+        if (err) clientGone = true;
+      });
+      if (ok === false || s?.destroyed) clientGone = true;
+    } catch {
+      clientGone = true;
+    }
+  };
+
+  // Keep the socket writable so a mid-wait RST/FIN surfaces as EPIPE instead of
+  // leaving the handler to persist after Gemini returns.
+  const heartbeat = setInterval(() => {
+    if (connectionDead() || res.writableEnded) {
+      clearInterval(heartbeat);
+      return;
+    }
+    try {
+      res.write(':\n\n', (err) => {
+        if (err) clientGone = true;
+      });
+    } catch {
+      clientGone = true;
+      clearInterval(heartbeat);
+    }
+  }, 250);
 
   try {
     const db = getDb();
@@ -441,6 +524,8 @@ app.post('/api/ai/chat/stream', authenticateToken, async (req, res) => {
         lastUser.content
       ]);
     }
+    if (connectionDead()) return;
+
     const [transactionsRes, budgetsRes, goalsRes] = await Promise.all([
       db.query('SELECT * FROM transactions WHERE user_id = $1', [req.user.id]),
       db.query('SELECT * FROM budgets WHERE user_id = $1', [req.user.id]),
@@ -448,27 +533,42 @@ app.post('/api/ai/chat/stream', authenticateToken, async (req, res) => {
     ]);
 
     let reply = '';
+    let notice = '';
     for await (const ev of streamFinancialAdvice(
       transactionsRes.rows,
       budgetsRes.rows,
       chatHistory,
       goalsRes.rows
     )) {
+      if (connectionDead()) break;
+      if (ev.type === 'source' && ev.notice) notice = ev.notice;
       if (ev.type === 'token') reply += ev.text;
       send(ev);
     }
 
+    if (connectionDead()) {
+      console.log('[ai/chat/stream] client disconnected; skipping assistant persist');
+      return;
+    }
+
+    const stored = notice && reply && !reply.startsWith(notice)
+      ? `${notice}\n\n${reply}`
+      : (reply || ' ');
     await db.query('INSERT INTO chat_messages (user_id, role, content) VALUES ($1, $2, $3)', [
       req.user.id,
       'assistant',
-      reply || ' '
+      stored
     ]);
     send({ type: 'done' });
     res.end();
   } catch (error) {
     console.error('AI chat stream error:', error);
-    send({ type: 'error', message: 'AI advisor failed to generate response' });
-    res.end();
+    if (!clientGone && !res.writableEnded) {
+      send({ type: 'error', message: 'AI advisor failed to generate response' });
+      res.end();
+    }
+  } finally {
+    clearInterval(heartbeat);
   }
 });
 
@@ -523,7 +623,7 @@ app.post('/api/ai/confirm-action', authenticateToken, async (req, res) => {
         ...fx,
         source: 'coach'
       }));
-      return res.json({ ok: true, transaction: result.rows[0] });
+      return res.json({ ok: true, transaction: await withAnomaly(req.user.id, result.rows[0]) });
     }
     if (action.type === 'update_budget') {
       const { category, amount } = action.payload;
@@ -654,7 +754,7 @@ app.post('/api/recurring/:id/log', authenticateToken, async (req, res) => {
     else next.setMonth(next.getMonth() + 1);
     const nextDate = next.toISOString().split('T')[0];
     await db.query('UPDATE recurring_rules SET next_date = $1 WHERE id = $2', [nextDate, rule.id]);
-    res.status(201).json({ transaction: result.rows[0], next_date: nextDate });
+    res.status(201).json({ transaction: await withAnomaly(req.user.id, result.rows[0]), next_date: nextDate });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to log recurrence' });
