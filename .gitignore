@@ -22,3 +22,4 @@ backend/dist/
 backend/ml/.venv/
 backend/ml/**/__pycache__/
 backend/ml/**/*.pyc
+.devdoctor/

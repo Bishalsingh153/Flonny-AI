@@ -113,6 +113,26 @@ async function initDb() {
     )
   `);
 
+  // PostgREST (anon key + project URL) must not see these tables. The Node
+  // backend uses DATABASE_URL as a privileged role and is unaffected.
+  await pool.query(`
+    DO $$
+    DECLARE t text;
+    BEGIN
+      FOR t IN
+        SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+      LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+      END LOOP;
+    END $$;
+  `);
+  try {
+    await pool.query('REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated');
+    await pool.query('REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated');
+  } catch (err) {
+    console.warn('Could not revoke anon/authenticated grants (roles may not exist):', err.message);
+  }
+
   console.log('PostgreSQL Database tables verified and ready.');
   return pool;
 }
