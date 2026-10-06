@@ -18,7 +18,7 @@ export const LandingPage = () => {
 
       <header className="landing-nav">
         <div className="landing-mark">
-          <span className="landing-wordmark">Floony</span>
+          <span className="landing-wordmark">Floony(BETA)</span>
           <span className="landing-rule" aria-hidden="true" />
           <span className="landing-kicker">AI financial intelligence</span>
         </div>

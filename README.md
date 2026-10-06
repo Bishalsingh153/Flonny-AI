@@ -1,11 +1,11 @@
-# Floony 💸
+# Floony 
 ### AI-Powered Financial Intelligence
 
 Floony is a minimal, sleek, and world-class expense tracker built with React (Vite) frontend and Express/Node.js backend. It connects to a PostgreSQL database (hosted on Supabase) and uses Google Gemini AI to parse natural language expense logs and offer personalized wealth coaching insights.
 
 ---
 
-## 🌟 Key Features
+##  Key Features
 
 1. **Natural Language Logging (The Floony AI Box)**
    - Type transactions naturally (e.g., *"Spent $25 on delicious sushi at Tokyo Dining last night"* or *"Earned $450 from Upwork freelance project"*).
@@ -29,7 +29,7 @@ Floony is a minimal, sleek, and world-class expense tracker built with React (Vi
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Clone the Repository
 
@@ -82,7 +82,7 @@ This builds the React frontend into `frontend/dist/`.
 
 ---
 
-## 🛠️ Architecture
+##  Architecture
 
 - **Frontend**: React (Vite), Vanilla CSS (custom dark design system), Recharts (data visualizations), Lucide React (vector iconography), Canvas Confetti (celebratory feedback).
 - **Backend**: Node.js, Express, PostgreSQL (`pg`), Google Gen AI SDK (`@google/generative-ai`).
@@ -91,7 +91,7 @@ This builds the React frontend into `frontend/dist/`.
 
 ---
 
-## 📦 Scripts
+##  Scripts
 
 | Command | Description |
 |---------|-------------|
