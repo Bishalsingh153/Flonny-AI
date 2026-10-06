@@ -50,6 +50,8 @@ import { AiParseBox } from './components/AI/AiParseBox';
 import { GoalsPanel } from './components/Goals/GoalsPanel';
 import { RecurringPanel } from './components/Recurring/RecurringPanel';
 import { MonthlyWrap } from './components/Wrap/MonthlyWrap';
+import { DeleteConfirmModal } from './components/UI/DeleteConfirmModal';
+import { Badge } from './components/UI/Badge';
 
 function AppContent() {
   const { token } = useAuth();
@@ -86,6 +88,8 @@ function AppContent() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sortDir, setSortDir] = useState('desc');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
 
   if (token && (location.pathname === '/login' || location.pathname === '/signup')) {
     return <Navigate to="/dashboard" replace />;
@@ -286,6 +290,8 @@ function AppContent() {
               onImport={() => setImportOpen(true)}
               onExport={exportCsv}
             />
+
+            
             <div className="table-container">
               <TransactionTable
                 transactions={filteredLedger}
@@ -294,8 +300,12 @@ function AppContent() {
                   setIsModalOpen(true);
                 }}
                 onDelete={(id) => {
-                  if (window.confirm('Delete this transaction?')) deleteTransaction(id);
+                  //if (window.confirm('Delete this transaction?')) deleteTransaction(id);
+                  setDeleteId(id);
+                  setShowDeleteModal(true)
                 }}
+
+                
               />
             </div>
           </div>
@@ -418,7 +428,34 @@ function AppContent() {
         currencySymbol={currentCurrencySymbol}
       />
       <ImportModal isOpen={importOpen} onClose={() => setImportOpen(false)} />
-    </div>
+
+        <TransactionModal
+  isOpen={isModalOpen}
+  onClose={() => {
+    setIsModalOpen(false);
+    setEditingTransaction(null);
+  }}
+  onSubmit={handleFormSubmit}
+  editingTransaction={editingTransaction}
+  currencySymbol={currentCurrencySymbol}
+/>
+
+<ImportModal isOpen={importOpen} onClose={() => setImportOpen(false)} />
+<DeleteConfirmModal
+  isOpen={showDeleteModal}
+  onCancel={() => {
+    setShowDeleteModal(false);
+    setDeleteId(null);
+  }}
+  onConfirm={() => {
+    deleteTransaction(deleteId);
+    setShowDeleteModal(false);
+    setDeleteId(null);
+  }}
+  message="Are you sure you want to delete this transaction?"
+/>
+</div>
+    
   );
 }
 
